@@ -1,5 +1,7 @@
 # DealHunter AI
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/samie3/Dailerhunter-ai)
+
 Find the cheapest deals for any product or subscription across grey-market, reseller, and official sources.
 
 ## Setup
