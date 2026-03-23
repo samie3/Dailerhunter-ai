@@ -3,54 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DealHunter AI</title>
+<title>DealHunter AI — Cheapest Deals Finder</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#232735;--border:#2d3148;--text:#e2e4ed;--dim:#8b8fa3;--accent:#6c5ce7;--accent2:#a29bfe;--green:#00cec9;--yellow:#fdcb6e;--red:#e17055}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.container{max-width:1200px;margin:0 auto;padding:20px}
-header{text-align:center;padding:40px 0 30px}
-h1{font-size:2.4rem;font-weight:700;background:linear-gradient(135deg,var(--accent2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
-.badge{display:inline-block;font-size:.7rem;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--dim);border:1px solid var(--border);margin-bottom:20px}
-.search-box{display:flex;gap:10px;max-width:640px;margin:0 auto 30px}
-.search-box input{flex:1;padding:14px 20px;font-size:1.05rem;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;transition:border .2s}
-.search-box input:focus{border-color:var(--accent)}
-.search-box button{padding:14px 28px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),#5a4bd1);color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:opacity .2s}
-.search-box button:hover{opacity:.9}
-.search-box button:disabled{opacity:.5;cursor:not-allowed}
-.status{text-align:center;color:var(--dim);margin-bottom:16px;min-height:24px;font-size:.9rem}
-.progress-bar{max-width:640px;margin:0 auto 24px;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;display:none}
-.progress-bar .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .3s;width:0}
-.results-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.88rem}
-th{background:var(--surface2);color:var(--dim);font-weight:600;text-transform:uppercase;font-size:.75rem;letter-spacing:.5px;padding:12px 14px;text-align:left;position:sticky;top:0}
-td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
-tr:nth-child(even) td{background:rgba(35,39,53,.5)}
-tr:hover td{background:rgba(108,92,231,.08)}
-td a{color:var(--accent2);text-decoration:none;word-break:break-all}
-td a:hover{text-decoration:underline}
-.price{font-weight:700;color:var(--green);white-space:nowrap}
-.type{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.75rem;font-weight:600}
-.type-official{background:rgba(0,206,201,.15);color:var(--green)}
-.type-reseller{background:rgba(162,155,254,.15);color:var(--accent2)}
-.type-shared{background:rgba(253,203,110,.15);color:var(--yellow)}
-.type-grey-market{background:rgba(225,112,85,.15);color:var(--red)}
-.type-trial{background:rgba(139,143,163,.15);color:var(--dim)}
-.type-lifetime{background:rgba(0,206,201,.15);color:var(--green)}
-.type-bundle{background:rgba(162,155,254,.15);color:var(--accent2)}
+:root{--bg:#0a0b10;--surface:#12141d;--surface2:#1a1d2a;--border:#252940;--text:#e2e4ed;--dim:#6e7191;--accent:#7c6aef;--accent2:#a599ff;--green:#00d4aa;--yellow:#ffc857;--red:#ef6461;--orange:#f5a623}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:1300px;margin:0 auto;padding:20px}
+header{text-align:center;padding:50px 0 30px}
+h1{font-size:2.6rem;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;letter-spacing:-0.5px}
+.sub{color:var(--dim);font-size:.9rem;margin-bottom:24px}
+.badge{display:inline-block;font-size:.65rem;padding:3px 12px;border-radius:20px;background:var(--surface2);color:var(--dim);border:1px solid var(--border);text-transform:uppercase;letter-spacing:1px}
+.search-box{display:flex;gap:10px;max-width:680px;margin:20px auto 12px}
+.search-box input{flex:1;padding:16px 22px;font-size:1.05rem;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;transition:border .2s}
+.search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,239,.15)}
+.search-box input::placeholder{color:var(--dim)}
+.search-box button{padding:16px 32px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),#5b4bd1);color:#fff;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.search-box button:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(124,106,239,.3)}
+.search-box button:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.hint{text-align:center;color:var(--dim);font-size:.78rem;margin-bottom:24px}
+.status{text-align:center;color:var(--accent2);margin-bottom:12px;min-height:24px;font-size:.88rem}
+.progress-bar{max-width:680px;margin:0 auto 20px;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;display:none}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .4s ease;width:0}
+.filters{max-width:680px;margin:0 auto 14px;display:none;gap:16px;align-items:center;justify-content:center;flex-wrap:wrap}
+.filters label{color:var(--dim);font-size:.82rem;cursor:pointer;display:flex;align-items:center;gap:5px}
+.filters input[type=checkbox]{accent-color:var(--accent)}
+.filters select{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:.82rem}
+.rcount{text-align:center;color:var(--dim);font-size:.78rem;margin-bottom:8px}
+.results-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{background:var(--surface2);color:var(--dim);font-weight:600;text-transform:uppercase;font-size:.72rem;letter-spacing:.6px;padding:13px 14px;text-align:left;position:sticky;top:0;z-index:1}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:nth-child(even) td{background:rgba(26,29,42,.6)}
+tr:hover td{background:rgba(124,106,239,.06)}
+td a{color:var(--accent2);text-decoration:none;word-break:break-all;font-weight:500}
+td a:hover{text-decoration:underline;color:#c4baff}
+.price{font-weight:800;color:var(--green);white-space:nowrap;font-size:.95rem}
+.price-check{font-weight:600;color:var(--accent2);font-size:.82rem}
+.type{display:inline-block;padding:3px 10px;border-radius:8px;font-size:.72rem;font-weight:700;letter-spacing:.3px}
+.type-official{background:rgba(0,212,170,.12);color:var(--green)}
+.type-reseller{background:rgba(165,153,255,.12);color:var(--accent2)}
+.type-shared{background:rgba(255,200,87,.12);color:var(--yellow)}
+.type-grey-market{background:rgba(239,100,97,.12);color:var(--red)}
+.type-trial{background:rgba(110,113,145,.15);color:var(--dim)}
+.type-lifetime-key{background:rgba(0,212,170,.12);color:var(--green)}
+.type-bundle{background:rgba(245,166,35,.12);color:var(--orange)}
 .empty{text-align:center;padding:60px 20px;color:var(--dim)}
 .empty .icon{font-size:3rem;margin-bottom:12px}
-.filters{max-width:640px;margin:0 auto 16px;display:flex;gap:12px;align-items:center;justify-content:center}
-.filters label{color:var(--dim);font-size:.85rem;cursor:pointer;display:flex;align-items:center;gap:5px}
-.filters input[type=checkbox]{accent-color:var(--accent)}
-.result-count{text-align:center;color:var(--dim);font-size:.8rem;margin-bottom:10px}
+.section-label{padding:10px 14px;background:var(--surface);color:var(--accent2);font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.warn{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;max-width:680px;margin:20px auto;font-size:.78rem;color:var(--dim);text-align:center;display:none}
+.warn b{color:var(--yellow)}
+footer{text-align:center;padding:40px 0 20px;color:var(--dim);font-size:.72rem}
 @media(max-width:700px){
-  .container{padding:12px}
-  header{padding:24px 0 16px}
-  h1{font-size:1.7rem}
+  .container{padding:10px}
+  header{padding:28px 0 16px}
+  h1{font-size:1.8rem}
   .search-box{flex-direction:column}
-  .search-box button{padding:12px}
-  th,td{padding:8px 6px;font-size:.8rem}
+  .search-box button{padding:14px}
+  th,td{padding:8px 6px;font-size:.78rem}
 }
 </style>
 </head>
@@ -58,64 +67,112 @@ td a:hover{text-decoration:underline}
 <div class="container">
   <header>
     <h1>🔍 DealHunter AI</h1>
-    <div class="badge">⚡ powered by AI</div>
+    <p class="sub">Find the absolute cheapest deals on any subscription or digital product</p>
+    <div class="badge">⚡ searches 20+ grey markets · resellers · shared accounts · lifetime deals</div>
   </header>
   <div class="search-box">
-    <input id="q" type="text" placeholder="Search deals… e.g. ChatGPT Plus, Netflix, Spotify" autofocus>
-    <button id="btn" onclick="doSearch()">Hunt Deals</button>
+    <input id="q" type="text" placeholder="e.g. ChatGPT Plus, Netflix Premium, Spotify, Canva Pro…" autofocus>
+    <button id="btn" onclick="doSearch()">🎯 Hunt Deals</button>
   </div>
+  <div class="hint">Searches G2A · Plati · GGSEL · Eneba · Kinguin · GamsGo · AppSumo · eBay & more</div>
   <div class="status" id="status"></div>
   <div class="progress-bar" id="pbar"><div class="fill" id="pfill"></div></div>
-  <div class="filters" id="filters" style="display:none">
-    <label><input type="checkbox" id="priceOnly" checked onchange="rerender()"> Only show results with prices</label>
+  <div class="filters" id="filters">
+    <label><input type="checkbox" id="priceOnly" onchange="rerender()"> Only with prices</label>
+    <label>Type: <select id="typeFilter" onchange="rerender()">
+      <option value="all">All Types</option>
+      <option value="grey-market">Grey Market</option>
+      <option value="shared">Shared/Split</option>
+      <option value="reseller">Reseller</option>
+      <option value="lifetime key">Lifetime</option>
+      <option value="official">Official</option>
+      <option value="trial">Trial/Promo</option>
+      <option value="bundle">Bundle</option>
+    </select></label>
   </div>
-  <div class="result-count" id="rcount"></div>
+  <div class="rcount" id="rcount"></div>
   <div id="output">
-    <div class="empty"><div class="icon">🎯</div>Enter a product or subscription name to find the cheapest deals across the web.</div>
+    <div class="empty"><div class="icon">🎯</div>Enter a product or subscription to find the cheapest deals across the entire web.<br><br><span style="font-size:.8rem">Grey markets · Resellers · Shared accounts · Lifetime deals · Official discounts</span></div>
   </div>
+  <div class="warn" id="warn"><b>⚠️ Disclaimer:</b> Grey-market and shared accounts may violate Terms of Service. Always verify prices on the source site before purchasing. Use at your own risk.</div>
+  <footer>DealHunter AI — Built for deal hunters who want the cheapest option 🌍</footer>
 </div>
 <script>
 const $=id=>document.getElementById(id);
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
-let _allResults=[];
-function rerender(){
-  const priced=$('priceOnly').checked;
-  const filtered=priced?_allResults.filter(r=>r.price!=null):_allResults;
-  $('output').innerHTML=renderTable(filtered);
-  $('rcount').textContent=`Showing ${filtered.length} of ${_allResults.length} results`;
-}
+let _all=[];
 
-function typeClass(t){
-  const m={'official':'official','reseller':'reseller','shared':'shared','grey-market':'grey-market','trial':'trial','lifetime key':'lifetime','bundle':'bundle'};
-  return 'type-'+(m[t]||'reseller');
-}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function typeClass(t){return'type-'+(t||'reseller').replace(/\s+/g,'-')}
 
 function renderTable(results){
-  if(!results.length) return '<div class="empty"><div class="icon">😕</div>No deals found. Try a different search term.</div>';
-  let h='<div class="results-wrap"><table><thead><tr><th>Source</th><th>Product / Plan</th><th>Price</th><th>Duration</th><th>Type</th><th>Trust / Risk</th></tr></thead><tbody>';
-  for(const r of results){
-    h+=`<tr>
-      <td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.source)}</a></td>
-      <td>${esc(r.product)}</td>
-      <td class="price">${esc(r.priceDisplay)}</td>
-      <td>${esc(r.duration)}</td>
-      <td><span class="type ${typeClass(r.type)}">${esc(r.type)}</span></td>
-      <td>${esc(r.trust)}</td>
-    </tr>`;
+  if(!results.length)return'<div class="empty"><div class="icon">😕</div>No results found. Try a different product name.</div>';
+  
+  // Split into priced and marketplace links
+  const priced=results.filter(r=>r.price!=null);
+  const links=results.filter(r=>r.price==null&&r.priceDisplay==='→ Check');
+  const other=results.filter(r=>r.price==null&&r.priceDisplay!=='→ Check');
+  
+  let h='<div class="results-wrap"><table><thead><tr><th>Source</th><th>Product / Plan</th><th>Price (USD)</th><th>Duration</th><th>Type</th><th>Trust / Risk</th></tr></thead><tbody>';
+  
+  if(priced.length){
+    h+=`<tr><td colspan="6" class="section-label">💰 Deals with prices found (${priced.length})</td></tr>`;
+    for(const r of priced){
+      h+=row(r);
+    }
   }
+  
+  if(links.length){
+    h+=`<tr><td colspan="6" class="section-label">🔗 Check these marketplaces directly (${links.length})</td></tr>`;
+    for(const r of links){
+      h+=row(r);
+    }
+  }
+  
+  if(other.length){
+    h+=`<tr><td colspan="6" class="section-label">📋 Other mentions (${other.length})</td></tr>`;
+    for(const r of other){
+      h+=row(r);
+    }
+  }
+  
   return h+'</tbody></table></div>';
 }
 
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function row(r){
+  const priceClass=r.price!=null?'price':'price-check';
+  return`<tr>
+    <td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.source)}</a></td>
+    <td>${esc(r.product)}</td>
+    <td class="${priceClass}">${esc(r.priceDisplay)}</td>
+    <td>${esc(r.duration)}</td>
+    <td><span class="type ${typeClass(r.type)}">${esc(r.type)}</span></td>
+    <td>${esc(r.trust)}</td>
+  </tr>`;
+}
+
+function rerender(){
+  const priced=$('priceOnly').checked;
+  const typeF=$('typeFilter').value;
+  let f=[..._all];
+  if(priced)f=f.filter(r=>r.price!=null);
+  if(typeF!=='all')f=f.filter(r=>r.type===typeF);
+  $('output').innerHTML=renderTable(f);
+  const p=_all.filter(r=>r.price!=null).length;
+  $('rcount').textContent=`Showing ${f.length} results (${p} with prices, ${_all.length} total)`;
+}
 
 async function doSearch(){
   const q=$('q').value.trim();
   if(!q)return;
   $('btn').disabled=true;
-  $('status').textContent='Starting search…';
+  $('status').textContent='🔍 Searching across 20+ marketplaces…';
   $('pbar').style.display='block';
   $('pfill').style.width='0%';
   $('output').innerHTML='';
+  $('rcount').textContent='';
+  $('warn').style.display='none';
+  _all=[];
 
   try{
     const es=new EventSource('/api/search?q='+encodeURIComponent(q));
@@ -123,28 +180,33 @@ async function doSearch(){
       const d=JSON.parse(e.data);
       const pct=Math.round(d.completed/d.total*100);
       $('pfill').style.width=pct+'%';
-      $('status').textContent=`Searching sources… ${d.completed}/${d.total}`;
+      $('status').textContent='🔍 '+(d.phase||`Searching… ${d.completed}/${d.total}`);
     });
     es.addEventListener('partial',e=>{
       const d=JSON.parse(e.data);
-      _allResults=d.results;
+      _all=d.results;
       $('filters').style.display='flex';
       rerender();
     });
     es.addEventListener('done',e=>{
       const d=JSON.parse(e.data);
-      _allResults=d.results;
+      _all=d.results;
+      $('filters').style.display='flex';
       rerender();
-      const priced=_allResults.filter(r=>r.price!=null).length;
-      $('status').textContent=`Done! ${priced} priced results from ${d.results.length} total listings`;
+      const p=_all.filter(r=>r.price!=null).length;
+      $('status').textContent=`✅ Done! ${p} priced deals + ${_all.length-p} marketplace links`;
       $('pfill').style.width='100%';
       $('btn').disabled=false;
+      $('warn').style.display='block';
       es.close();
     });
     es.onerror=()=>{
-      $('status').textContent='Search failed – check server logs or API key.';
+      if(_all.length){
+        $('status').textContent='⚡ Search partially complete';
+      }else{
+        $('status').textContent='⚠️ Connection lost. Try again.';
+      }
       $('btn').disabled=false;
-      $('pbar').style.display='none';
       es.close();
     };
   }catch(e){

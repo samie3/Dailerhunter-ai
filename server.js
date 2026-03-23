@@ -1,119 +1,256 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const path = require('path');
 const cheerio = require('cheerio');
+const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-
+const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// ─── Known deal sites & grey markets ───
-const KNOWN_SITES = [
-  { name: 'Plati.Market', domain: 'plati.market', type: 'grey-market', risk: 'High revoke risk · grey-market keys/accounts' },
-  { name: 'GGSEL', domain: 'ggsel.net', type: 'grey-market', risk: 'High risk · Chinese grey-market platform' },
-  { name: 'G2A', domain: 'g2a.com', type: 'grey-market', risk: 'Medium risk · check seller ratings & G2A Plus protection' },
-  { name: 'Eneba', domain: 'eneba.com', type: 'reseller', risk: 'Medium risk · reseller marketplace with buyer protection' },
-  { name: 'Kinguin', domain: 'kinguin.net', type: 'reseller', risk: 'Medium risk · reseller · buyer protection available' },
-  { name: 'Sellix', domain: 'sellix.io', type: 'grey-market', risk: 'High risk · individual sellers, no platform guarantee' },
-  { name: 'Shoppy', domain: 'shoppy.gg', type: 'grey-market', risk: 'High risk · unvetted sellers, minimal buyer protection' },
-  { name: 'GamsGo', domain: 'gamsgo.com', type: 'shared', risk: 'Medium risk · subscription sharing platform' },
-  { name: 'GoSplit', domain: 'gosplit.io', type: 'shared', risk: 'Medium risk · subscription splitting service' },
-  { name: 'Together Price', domain: 'togetherprice.com', type: 'shared', risk: 'Low-medium risk · established sharing platform' },
-  { name: 'Cheapzy', domain: 'cheapzy.com', type: 'shared', risk: 'Medium risk · shared account marketplace' },
-  { name: 'AppSumo', domain: 'appsumo.com', type: 'lifetime key', risk: 'Low risk · established LTD platform with refund policy' },
-  { name: 'StackSocial', domain: 'stacksocial.com', type: 'lifetime key', risk: 'Low risk · established deal platform' },
-  { name: 'DealMirror', domain: 'dealmirror.com', type: 'lifetime key', risk: 'Low-medium risk · LTD reseller' },
-  { name: 'PitchGround', domain: 'pitchground.com', type: 'lifetime key', risk: 'Low risk · LTD marketplace with guarantees' },
-  { name: 'SaaSMantra', domain: 'saasmantra.com', type: 'lifetime key', risk: 'Low risk · curated LTD deals' },
-  { name: 'RapidAPI', domain: 'rapidapi.com', type: 'official', risk: 'Low risk · official API marketplace' },
-  { name: 'eBay', domain: 'ebay.com', type: 'reseller', risk: 'Medium risk · check seller feedback, eBay buyer protection' },
-  { name: 'Reddit', domain: 'reddit.com', type: 'reseller', risk: 'High risk · peer-to-peer, no buyer protection' },
-  { name: 'Telegram', domain: 't.me', type: 'grey-market', risk: 'Very high risk · no buyer protection, scam-prone' },
-  { name: 'AliExpress', domain: 'aliexpress.com', type: 'grey-market', risk: 'Medium-high risk · buyer protection available but slow' },
-  { name: 'Taobao', domain: 'taobao.com', type: 'grey-market', risk: 'High risk · Chinese market, complex disputes' },
-  { name: 'Fiverr', domain: 'fiverr.com', type: 'reseller', risk: 'Medium risk · freelancer marketplace, some account sellers' },
-  { name: 'PlayerAuctions', domain: 'playerauctions.com', type: 'reseller', risk: 'Medium risk · established reseller with escrow' },
-  { name: 'CDKeys', domain: 'cdkeys.com', type: 'reseller', risk: 'Low-medium risk · established key reseller' },
-  { name: 'Humble Bundle', domain: 'humblebundle.com', type: 'bundle', risk: 'Low risk · official partner, charity bundles' },
-  { name: 'Fanatical', domain: 'fanatical.com', type: 'bundle', risk: 'Low risk · authorized reseller' },
-];
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-// ─── Query templates for comprehensive search ───
-const QUERY_TEMPLATES = [
-  '{product} cheap',
-  '{product} cheapest price',
-  '{product} discount deal',
-  '{product} shared account buy',
-  '{product} reseller cheap',
-  '{product} lifetime deal',
-  '{product} grey market buy',
-  '{product} family plan share cheap',
-  '{product} subscription cheap buy',
-  '{product} coupon promo code',
-  '{product} student discount edu',
-  '{product} upgrade cheap',
-  '{product} account buy cheap USD',
-  '{product} 1 month cheap',
-  '{product} annual yearly discount',
-  '{product} region cheap VPN trick',
-  'buy {product} cheap reddit',
-];
+// ─── Direct marketplace scrapers ───
 
-const SITE_QUERIES = KNOWN_SITES.filter(s => !['reddit.com', 'ebay.com'].includes(s.domain))
-  .slice(0, 12)
-  .map(s => ({ query: `site:${s.domain} {product}`, site: s }));
-
-// ─── Price extraction ───
-const PRICE_PATTERNS = [
-  /\$\s?(\d{1,5}(?:[.,]\d{1,2})?)/g,
-  /(\d{1,5}(?:[.,]\d{1,2})?)\s?(?:USD|usd|\$)/g,
-  /USD\s?(\d{1,5}(?:[.,]\d{1,2})?)/g,
-  /€\s?(\d{1,5}(?:[.,]\d{1,2})?)/g,
-  /(\d{1,5}(?:[.,]\d{1,2})?)\s?(?:EUR|eur|€)/g,
-  /£\s?(\d{1,5}(?:[.,]\d{1,2})?)/g,
-  /₽\s?(\d{1,6}(?:[.,]\d{1,2})?)/g,
-  /(\d{1,6}(?:[.,]\d{1,2})?)\s?(?:RUB|руб)/g,
-];
-
-const FX = { USD: 1, EUR: 1.08, GBP: 1.26, RUB: 0.011 };
-
-function extractPrice(text) {
-  if (!text) return null;
-  const prices = [];
-  for (const pat of PRICE_PATTERNS) {
-    pat.lastIndex = 0;
-    let m;
-    while ((m = pat.exec(text)) !== null) {
-      const raw = (m[1] || m[0]).replace(',', '.');
-      let val = parseFloat(raw);
-      if (isNaN(val) || val <= 0 || val > 50000) continue;
-      // Currency conversion
-      if (/[€]|EUR|eur/.test(m[0])) val *= FX.EUR;
-      else if (/[£]|GBP/.test(m[0])) val *= FX.GBP;
-      else if (/[₽]|RUB|руб/.test(m[0])) val *= FX.RUB;
-      prices.push(val);
+async function scrapeG2A(product) {
+  try {
+    const { data } = await axios.get('https://www.g2a.com/search/api/v3/suggestions', {
+      params: { phrase: product, currency: 'USD' },
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
+      timeout: 10000,
+    });
+    const results = [];
+    for (const item of (data?.data?.products || [])) {
+      results.push({
+        source: 'G2A',
+        url: item.slug ? `https://www.g2a.com${item.slug}` : 'https://www.g2a.com/search?query=' + encodeURIComponent(product),
+        product: item.name || product,
+        price: item.minPrice ? parseFloat(item.minPrice) : null,
+        duration: '—',
+        type: 'grey-market',
+        trust: 'Medium risk · check seller ratings & G2A Plus protection',
+      });
     }
-  }
-  return prices.length ? Math.min(...prices) : null;
+    // Fallback: scrape HTML search
+    if (!results.length) {
+      const { data: html } = await axios.get('https://www.g2a.com/search', {
+        params: { query: product },
+        headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
+        timeout: 10000,
+      });
+      const $ = cheerio.load(html);
+      $('[data-locator="zth-product"]').each((i, el) => {
+        if (results.length >= 10) return false;
+        const name = $(el).find('[data-locator="zth-product-title"]').text().trim();
+        const a = $(el).find('a[href]').first();
+        let href = a.attr('href') || '';
+        if (href && !href.startsWith('http')) href = 'https://www.g2a.com' + href;
+        const priceText = $(el).find('[data-locator="zth-price"]').text().trim();
+        const price = extractUSD(priceText);
+        if (name || href) results.push({
+          source: 'G2A', url: href || 'https://www.g2a.com', product: name || product,
+          price, duration: guessDuration(name), type: 'grey-market',
+          trust: 'Medium risk · check seller ratings & G2A Plus protection',
+        });
+      });
+    }
+    return results;
+  } catch (e) { console.error('G2A:', e.message); return []; }
 }
 
-function classifyType(url, title) {
-  const u = (url + ' ' + title).toLowerCase();
-  for (const site of KNOWN_SITES) {
-    if (u.includes(site.domain)) return { type: site.type, trust: site.risk };
-  }
-  if (/lifetime/i.test(u)) return { type: 'lifetime key', trust: '🔑 Lifetime deal – verify it\'s legit & terms' };
-  if (/shared|split|family/i.test(u)) return { type: 'shared', trust: '👥 Shared/split – limited control, revoke possible' };
-  if (/trial|free/i.test(u)) return { type: 'trial', trust: 'ℹ️ Trial/promo – time or feature limited' };
-  if (/bundle/i.test(u)) return { type: 'bundle', trust: '📦 Bundle deal – check included items' };
-  if (/official|\.com\/pricing|\.com\/plans/i.test(u)) return { type: 'official', trust: '✅ Official – safest, full support' };
-  return { type: 'reseller', trust: '⚡ Third-party – verify seller reputation' };
+async function scrapeEneba(product) {
+  try {
+    // Eneba GraphQL API
+    const { data } = await axios.post('https://www.eneba.com/graphql', {
+      query: `query { search(text: "${product.replace(/"/g, '')}", currency: "USD", first: 10) { edges { node { name slug price { amount } } } } }`,
+    }, {
+      headers: { 'User-Agent': UA, 'Content-Type': 'application/json' },
+      timeout: 10000,
+    });
+    const results = [];
+    for (const edge of (data?.data?.search?.edges || [])) {
+      const n = edge.node;
+      results.push({
+        source: 'Eneba', url: n.slug ? `https://www.eneba.com/${n.slug}` : 'https://www.eneba.com',
+        product: n.name, price: n.price?.amount ? parseFloat(n.price.amount) / 100 : null,
+        duration: guessDuration(n.name), type: 'reseller',
+        trust: 'Medium risk · reseller with buyer protection',
+      });
+    }
+    // Fallback HTML
+    if (!results.length) {
+      const { data: html } = await axios.get('https://www.eneba.com/store', {
+        params: { text: product }, headers: { 'User-Agent': UA }, timeout: 10000,
+      });
+      const $ = cheerio.load(html);
+      $('[class*="product"], [class*="Product"]').each((i, el) => {
+        if (results.length >= 10) return false;
+        const a = $(el).find('a').first();
+        const name = $(el).find('[class*="title"], [class*="Title"]').text().trim() || a.text().trim();
+        let href = a.attr('href') || '';
+        if (href && !href.startsWith('http')) href = 'https://www.eneba.com' + href;
+        const priceText = $(el).text();
+        const price = extractUSD(priceText);
+        if (name) results.push({
+          source: 'Eneba', url: href, product: name, price,
+          duration: guessDuration(name), type: 'reseller',
+          trust: 'Medium risk · reseller with buyer protection',
+        });
+      });
+    }
+    return results;
+  } catch (e) { console.error('Eneba:', e.message); return []; }
 }
 
-function extractDuration(text) {
+async function scrapePlati(product) {
+  try {
+    const { data } = await axios.get('https://plati.market/search/' + encodeURIComponent(product), {
+      headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
+      timeout: 10000,
+    });
+    const $ = cheerio.load(data);
+    const results = [];
+    $('a[href*="/itm/"]').each((i, el) => {
+      if (results.length >= 12) return false;
+      const name = $(el).text().trim();
+      let href = $(el).attr('href') || '';
+      if (href && !href.startsWith('http')) href = 'https://plati.market' + href;
+      const row = $(el).closest('tr, div, li');
+      const priceText = row.text();
+      const price = extractUSD(priceText) || extractRUB(priceText);
+      if (name && name.length > 5) results.push({
+        source: 'Plati.Market', url: href, product: name, price,
+        duration: guessDuration(name), type: 'grey-market',
+        trust: 'High revoke risk · grey-market keys/accounts',
+      });
+    });
+    return results;
+  } catch (e) { console.error('Plati:', e.message); return []; }
+}
+
+async function scrapeKinguin(product) {
+  try {
+    const { data } = await axios.get('https://www.kinguin.net/catalogsearch/result', {
+      params: { q: product },
+      headers: { 'User-Agent': UA }, timeout: 10000,
+    });
+    const $ = cheerio.load(data);
+    const results = [];
+    $('[class*="product-item"], [class*="ProductCard"]').each((i, el) => {
+      if (results.length >= 10) return false;
+      const a = $(el).find('a').first();
+      const name = $(el).find('[class*="title"], [class*="name"], h2, h3').text().trim() || a.text().trim();
+      let href = a.attr('href') || '';
+      if (href && !href.startsWith('http')) href = 'https://www.kinguin.net' + href;
+      const price = extractUSD($(el).text());
+      if (name) results.push({
+        source: 'Kinguin', url: href, product: name, price,
+        duration: guessDuration(name), type: 'reseller',
+        trust: 'Medium risk · buyer protection available',
+      });
+    });
+    return results;
+  } catch (e) { console.error('Kinguin:', e.message); return []; }
+}
+
+async function scrapeCDKeys(product) {
+  try {
+    const { data } = await axios.get('https://www.cdkeys.com/catalogsearch/result', {
+      params: { q: product },
+      headers: { 'User-Agent': UA }, timeout: 10000,
+    });
+    const $ = cheerio.load(data);
+    const results = [];
+    $('.product-item, [class*="product"]').each((i, el) => {
+      if (results.length >= 10) return false;
+      const a = $(el).find('a.product-item-link, a[href*="/"]').first();
+      const name = a.text().trim();
+      let href = a.attr('href') || '';
+      const price = extractUSD($(el).text());
+      if (name && name.length > 3) results.push({
+        source: 'CDKeys', url: href, product: name, price,
+        duration: guessDuration(name), type: 'reseller',
+        trust: 'Low-medium risk · established key reseller',
+      });
+    });
+    return results;
+  } catch (e) { console.error('CDKeys:', e.message); return []; }
+}
+
+async function scrapeGamsGo(product) {
+  try {
+    const { data } = await axios.get('https://www.gamsgo.com/', {
+      headers: { 'User-Agent': UA }, timeout: 10000,
+    });
+    const $ = cheerio.load(data);
+    const results = [];
+    const prodLower = product.toLowerCase();
+    $('[class*="product"], [class*="card"], [class*="item"]').each((i, el) => {
+      const text = $(el).text().toLowerCase();
+      if (!text.includes(prodLower.split(' ')[0])) return;
+      if (results.length >= 5) return false;
+      const a = $(el).find('a').first();
+      const name = $(el).find('h2, h3, [class*="title"]').text().trim() || a.text().trim();
+      let href = a.attr('href') || '';
+      if (href && !href.startsWith('http')) href = 'https://www.gamsgo.com' + href;
+      const price = extractUSD($(el).text());
+      if (name) results.push({
+        source: 'GamsGo', url: href || 'https://www.gamsgo.com', product: name, price,
+        duration: guessDuration(name), type: 'shared',
+        trust: 'Medium risk · subscription sharing platform',
+      });
+    });
+    return results;
+  } catch (e) { console.error('GamsGo:', e.message); return []; }
+}
+
+async function scrapeAppSumo(product) {
+  try {
+    const { data } = await axios.get('https://appsumo.com/search/', {
+      params: { q: product },
+      headers: { 'User-Agent': UA }, timeout: 10000,
+    });
+    const $ = cheerio.load(data);
+    const results = [];
+    $('[class*="product"], [class*="card"]').each((i, el) => {
+      if (results.length >= 8) return false;
+      const a = $(el).find('a').first();
+      const name = $(el).find('h2, h3, [class*="title"]').text().trim();
+      let href = a.attr('href') || '';
+      if (href && !href.startsWith('http')) href = 'https://appsumo.com' + href;
+      const price = extractUSD($(el).text());
+      if (name) results.push({
+        source: 'AppSumo', url: href, product: name, price,
+        duration: 'Lifetime', type: 'lifetime key',
+        trust: 'Low risk · established LTD platform',
+      });
+    });
+    return results;
+  } catch (e) { console.error('AppSumo:', e.message); return []; }
+}
+
+// ─── Helpers ───
+function extractUSD(text) {
+  if (!text) return null;
+  const m = text.match(/\$\s?(\d{1,5}(?:[.,]\d{1,2})?)/);
+  if (m) { const v = parseFloat(m[1].replace(',', '.')); if (v > 0 && v < 50000) return v; }
+  const m2 = text.match(/(\d{1,5}(?:[.,]\d{1,2})?)\s?(?:USD|usd)/);
+  if (m2) { const v = parseFloat(m2[1].replace(',', '.')); if (v > 0 && v < 50000) return v; }
+  // EUR
+  const m3 = text.match(/€\s?(\d{1,5}(?:[.,]\d{1,2})?)/);
+  if (m3) { const v = parseFloat(m3[1].replace(',', '.')); if (v > 0 && v < 50000) return v * 1.08; }
+  return null;
+}
+
+function extractRUB(text) {
+  if (!text) return null;
+  const m = text.match(/(\d{1,6}(?:[.,]\d{1,2})?)\s?(?:₽|RUB|руб)/i);
+  if (m) { const v = parseFloat(m[1].replace(',', '.')); if (v > 0) return Math.round(v * 0.011 * 100) / 100; }
+  return null;
+}
+
+function guessDuration(text) {
   const t = (text || '').toLowerCase();
   if (/lifetime/i.test(t)) return 'Lifetime';
   const m = t.match(/(\d+)\s*(month|year|day|week)/i);
@@ -123,228 +260,47 @@ function extractDuration(text) {
   return '—';
 }
 
-function sourceName(url) {
-  try {
-    const host = new URL(url).hostname.replace('www.', '');
-    const site = KNOWN_SITES.find(s => host.includes(s.domain));
-    if (site) return site.name;
-    return host;
-  } catch { return url; }
-}
-
-// ─── Free search engines (no API key needed) ───
-
-async function duckDuckGoSearch(query, maxResults = 15) {
-  try {
-    const { data } = await axios.get('https://html.duckduckgo.com/html/', {
-      params: { q: query },
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      timeout: 10000,
-    });
-    const $ = cheerio.load(data);
-    const results = [];
-    $('.result').each((i, el) => {
-      if (results.length >= maxResults) return false;
-      const titleEl = $(el).find('.result__title a');
-      const snippetEl = $(el).find('.result__snippet');
-      const href = titleEl.attr('href') || '';
-      // DDG wraps URLs
-      let url = href;
-      if (href.includes('uddg=')) {
-        try { url = decodeURIComponent(href.split('uddg=')[1].split('&')[0]); } catch {}
-      }
-      if (!url || url.startsWith('/')) return;
-      results.push({
-        title: titleEl.text().trim(),
-        url,
-        snippet: snippetEl.text().trim(),
-      });
-    });
-    return results;
-  } catch (e) {
-    console.error('DDG error:', e.message);
-    return [];
-  }
-}
-
-async function googleSearch(query, maxResults = 15) {
-  try {
-    const { data } = await axios.get('https://www.google.com/search', {
-      params: { q: query, num: maxResults, hl: 'en' },
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      timeout: 10000,
-    });
-    const $ = cheerio.load(data);
-    const results = [];
-    $('div.g, div[data-sokoban-container]').each((i, el) => {
-      if (results.length >= maxResults) return false;
-      const a = $(el).find('a').first();
-      const url = a.attr('href') || '';
-      if (!url.startsWith('http')) return;
-      const title = $(el).find('h3').first().text().trim();
-      const snippet = $(el).find('[data-sncf], .VwiC3b, .lEBKkf').first().text().trim();
-      if (title) results.push({ title, url, snippet });
-    });
-    return results;
-  } catch (e) {
-    console.error('Google error:', e.message);
-    return [];
-  }
-}
-
-// Use DDG as primary, Google as fallback
-async function webSearch(query, maxResults = 12) {
-  let results = await duckDuckGoSearch(query, maxResults);
-  if (results.length < 3) {
-    const gResults = await googleSearch(query, maxResults);
-    // Merge without duplicates
-    const urls = new Set(results.map(r => r.url));
-    for (const r of gResults) {
-      if (!urls.has(r.url)) {
-        results.push(r);
-        urls.add(r.url);
-      }
-    }
-  }
-  return results.slice(0, maxResults);
-}
-
-// ─── Direct site scrapers for top grey markets ───
-
-async function scrapePlati(product) {
-  try {
-    const { data } = await axios.get('https://plati.market/search/' + encodeURIComponent(product), {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'en-US,en;q=0.9' },
-      timeout: 10000,
-    });
-    const $ = cheerio.load(data);
-    const results = [];
-    $('[class*="product"], .goods_list_row, .goods-item, tr.row, .product-card').each((i, el) => {
-      if (results.length >= 8) return false;
-      const a = $(el).find('a[href*="/"]').first();
-      const title = a.text().trim() || $(el).find('[class*="title"], [class*="name"]').text().trim();
-      let href = a.attr('href') || '';
-      if (href && !href.startsWith('http')) href = 'https://plati.market' + href;
-      const priceText = $(el).find('[class*="price"], [class*="cost"]').text().trim();
-      if (title && href) results.push({ title, url: href, snippet: priceText + ' ' + title });
-    });
-    return results;
-  } catch { return []; }
-}
-
-async function scrapeG2A(product) {
-  try {
-    const { data } = await axios.get('https://www.g2a.com/search', {
-      params: { query: product },
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'en-US,en;q=0.9' },
-      timeout: 10000,
-    });
-    const $ = cheerio.load(data);
-    const results = [];
-    $('[class*="ProductCard"], [class*="product-card"], li[class*="item"]').each((i, el) => {
-      if (results.length >= 8) return false;
-      const a = $(el).find('a').first();
-      const title = a.text().trim() || $(el).find('[class*="title"]').text().trim();
-      let href = a.attr('href') || '';
-      if (href && !href.startsWith('http')) href = 'https://www.g2a.com' + href;
-      const priceText = $(el).find('[class*="price"], [class*="Price"]').text().trim();
-      if (title && href) results.push({ title, url: href, snippet: priceText + ' ' + title });
-    });
-    return results;
-  } catch { return []; }
-}
-
-async function scrapeEneba(product) {
-  try {
-    const { data } = await axios.get('https://www.eneba.com/store?text=' + encodeURIComponent(product), {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      timeout: 10000,
-    });
-    const $ = cheerio.load(data);
-    const results = [];
-    $('[class*="product"], [class*="Product"], [class*="card"]').each((i, el) => {
-      if (results.length >= 8) return false;
-      const a = $(el).find('a').first();
-      const title = a.text().trim() || $(el).find('[class*="title"]').text().trim();
-      let href = a.attr('href') || '';
-      if (href && !href.startsWith('http')) href = 'https://www.eneba.com' + href;
-      const priceText = $(el).find('[class*="price"], [class*="Price"]').text().trim();
-      if (title && href) results.push({ title, url: href, snippet: priceText + ' ' + title });
-    });
-    return results;
-  } catch { return []; }
-}
-
-function isRelevant(title, snippet, product) {
-  // Filter out generic/junk pages
-  const combined = (title + ' ' + snippet).toLowerCase();
-  const prod = product.toLowerCase();
-  const prodWords = prod.split(/\s+/).filter(w => w.length > 2);
-  // At least one significant product word must appear
-  const hasProductWord = prodWords.some(w => combined.includes(w));
-  if (!hasProductWord) return false;
-  // Skip category pages, homepages, login pages, blog/news with no deal
-  const junkPatterns = [
-    /^(gaming|software|subscriptions|gift cards|outlet|categories)$/i,
-    /\/category\//i, /\/login/i, /\/register/i, /\/signup/i,
-    /^pay less with/i, /^best deals$/i,
-  ];
-  if (junkPatterns.some(p => p.test(title) || p.test(snippet))) return false;
-  return true;
-}
-
-function parseResults(rawResults, product) {
-  const seen = new Set();
-  return rawResults
-    .map(r => {
-      const combined = `${r.title} ${r.snippet}`;
-      const price = extractPrice(combined);
-      const url = r.url;
-      if (!url || seen.has(url)) return null;
-      seen.add(url);
-      // Filter irrelevant results
-      if (!isRelevant(r.title, r.snippet, product)) return null;
-      const { type, trust } = classifyType(url, combined);
-      return {
-        source: sourceName(url),
-        url,
-        product: (r.title || product).slice(0, 100),
-        price,
-        priceDisplay: price != null ? `$${price.toFixed(2)}` : '—',
-        duration: extractDuration(combined),
-        type,
-        trust,
-      };
-    })
-    .filter(Boolean);
-}
-
 function dedup(results) {
   const seen = new Set();
-  return results
-    .filter(r => {
-      const key = r.url.replace(/\/$/, '').toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .sort((a, b) => {
-      if (a.price == null && b.price == null) return 0;
-      if (a.price == null) return 1;
-      if (b.price == null) return -1;
-      return a.price - b.price;
-    });
+  return results.filter(r => {
+    const key = (r.url || '').replace(/\/$/, '').toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => {
+    if (a.price == null && b.price == null) return 0;
+    if (a.price == null) return 1;
+    if (b.price == null) return -1;
+    return a.price - b.price;
+  });
 }
 
-// ─── SSE search endpoint ───
+// ─── All scrapers ───
+const SCRAPERS = [
+  { name: 'G2A', fn: scrapeG2A },
+  { name: 'Eneba', fn: scrapeEneba },
+  { name: 'Plati.Market', fn: scrapePlati },
+  { name: 'Kinguin', fn: scrapeKinguin },
+  { name: 'CDKeys', fn: scrapeCDKeys },
+  { name: 'GamsGo', fn: scrapeGamsGo },
+  { name: 'AppSumo', fn: scrapeAppSumo },
+];
+
+// Direct links for manual checking
+function getDirectLinks(product) {
+  return [
+    { source: 'GGSEL', url: `https://www.ggsel.net/search?keyword=${encodeURIComponent(product)}`, product: `Search "${product}" on GGSEL`, price: null, priceDisplay: '→ Check', duration: '—', type: 'grey-market', trust: 'High risk · Chinese grey-market' },
+    { source: 'Sellix', url: `https://sellix.io/search?q=${encodeURIComponent(product)}`, product: `Search "${product}" on Sellix`, price: null, priceDisplay: '→ Check', duration: '—', type: 'grey-market', trust: 'High risk · individual sellers' },
+    { source: 'GoSplit', url: `https://gosplit.io`, product: `Check "${product}" on GoSplit`, price: null, priceDisplay: '→ Check', duration: '—', type: 'shared', trust: 'Medium risk · subscription splitting' },
+    { source: 'Together Price', url: `https://togetherprice.com`, product: `Check "${product}" on Together Price`, price: null, priceDisplay: '→ Check', duration: '—', type: 'shared', trust: 'Low-medium risk · established sharing' },
+    { source: 'StackSocial', url: `https://stacksocial.com/search?q=${encodeURIComponent(product)}`, product: `Search "${product}" on StackSocial`, price: null, priceDisplay: '→ Check', duration: '—', type: 'lifetime key', trust: 'Low risk · established deals' },
+    { source: 'eBay', url: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(product + ' subscription')}`, product: `Search "${product}" on eBay`, price: null, priceDisplay: '→ Check', duration: '—', type: 'reseller', trust: 'Medium risk · eBay buyer protection' },
+    { source: 'AliExpress', url: `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product)}`, product: `Search "${product}" on AliExpress`, price: null, priceDisplay: '→ Check', duration: '—', type: 'grey-market', trust: 'Medium-high risk · buyer protection but slow' },
+    { source: 'Reddit', url: `https://www.reddit.com/search/?q=${encodeURIComponent(product + ' cheap deal')}`, product: `Reddit discussions about cheap "${product}"`, price: null, priceDisplay: '→ Check', duration: '—', type: 'reseller', trust: 'Info only · community tips & warnings' },
+  ];
+}
+
+// ─── SSE endpoint ───
 app.get('/api/search', async (req, res) => {
   const product = (req.query.q || '').trim();
   if (!product) return res.status(400).json({ error: 'Missing query' });
@@ -359,62 +315,49 @@ app.get('/api/search', async (req, res) => {
     try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
   };
 
-  // Build all queries
-  const queries = QUERY_TEMPLATES.map(t => t.replace('{product}', product));
-  const siteQueries = SITE_QUERIES.map(sq => ({
-    query: sq.query.replace('{product}', product),
-    site: sq.site,
-  }));
-
-  const totalSteps = queries.length + siteQueries.length + 3; // +3 for direct scrapers
+  const total = SCRAPERS.length + 1;
   let allResults = [];
   let completed = 0;
 
-  const tick = (extra) => {
-    completed++;
-    send('progress', { completed, total: totalSteps, ...(extra || {}) });
-  };
+  send('progress', { completed: 0, total, phase: 'Starting deal hunt…' });
 
-  // Phase 1: Direct site scrapers (parallel)
-  send('progress', { completed: 0, total: totalSteps, phase: 'Scraping grey markets directly…' });
-  const directScrapers = [
-    scrapePlati(product).then(r => { tick({ phase: 'Plati.Market scraped' }); return r; }),
-    scrapeG2A(product).then(r => { tick({ phase: 'G2A scraped' }); return r; }),
-    scrapeEneba(product).then(r => { tick({ phase: 'Eneba scraped' }); return r; }),
-  ];
-  const directResults = await Promise.allSettled(directScrapers);
-  for (const r of directResults) {
-    if (r.status === 'fulfilled' && r.value.length) {
-      allResults.push(...parseResults(r.value, product));
+  // Run all scrapers in parallel
+  const scrapePromises = SCRAPERS.map(async (s) => {
+    try {
+      const results = await s.fn(product);
+      completed++;
+      send('progress', { completed, total, phase: `✓ ${s.name} — ${results.length} results` });
+      return results;
+    } catch (e) {
+      completed++;
+      send('progress', { completed, total, phase: `✗ ${s.name} — failed` });
+      return [];
     }
-  }
-  if (allResults.length) send('partial', { results: dedup(allResults).slice(0, 80) });
+  });
 
-  // Phase 2: Web searches in batches
-  const allQueries = [...queries, ...siteQueries.map(sq => sq.query)];
-  const batchSize = 3;
-  for (let i = 0; i < allQueries.length; i += batchSize) {
-    const batch = allQueries.slice(i, i + batchSize);
-    const batchResults = await Promise.allSettled(
-      batch.map(q => webSearch(q, 10))
-    );
-    for (const r of batchResults) {
-      tick({ phase: `Searching the web… (${completed}/${totalSteps})` });
-      if (r.status === 'fulfilled' && r.value.length) {
-        allResults.push(...parseResults(r.value, product));
-      }
-    }
-    // Send partial results
-    const deduped = dedup(allResults);
-    send('partial', { results: deduped.slice(0, 100) });
-
-    // Small delay to avoid rate limiting
-    await new Promise(r => setTimeout(r, 300));
+  const scrapeResults = await Promise.allSettled(scrapePromises);
+  for (const r of scrapeResults) {
+    if (r.status === 'fulfilled') allResults.push(...r.value);
   }
+
+  // Add display-ready prices
+  allResults = allResults.map(r => ({
+    ...r,
+    priceDisplay: r.price != null ? `$${r.price.toFixed(2)}` : '—',
+  }));
+
+  // Add direct links
+  const directLinks = getDirectLinks(product);
+  allResults.push(...directLinks);
+  completed++;
+  send('progress', { completed: total, total, phase: 'Adding marketplace links…' });
 
   const final = dedup(allResults);
+  send('partial', { results: final });
   send('done', { results: final });
   res.end();
 });
 
-app.listen(PORT, () => console.log(`DealHunter AI running on http://localhost:${PORT}`));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', scrapers: SCRAPERS.length }));
+
+app.listen(PORT, '0.0.0.0', () => console.log(`DealHunter AI running on http://0.0.0.0:${PORT}`));
