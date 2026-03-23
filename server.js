@@ -60,16 +60,36 @@ app.get('/api/search', async (req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   const send = (ev, d) => { try { res.write(`event: ${ev}\ndata: ${JSON.stringify(d)}\n\n`); } catch {} };
 
-  // Check cache
-  const cached = getCache(product);
+  // Check cache — exact match first, then fuzzy
+  let cached = getCache(product);
+  if (!cached || !cached.length) {
+    // Fuzzy: search all cache files for partial match
+    try {
+      const files = fs.readdirSync(CACHE_DIR).filter(f => f.endsWith('.json'));
+      const queryWords = product.toLowerCase().split(/\s+/);
+      for (const f of files) {
+        const name = Buffer.from(f.replace('.json', ''), 'base64url').toString();
+        const nameWords = name.toLowerCase().split(/\s+/);
+        // Match if query is substring of cached name or vice versa, or shares main keyword
+        if (name.includes(product.toLowerCase()) || product.toLowerCase().includes(name) ||
+            queryWords.some(w => w.length > 3 && nameWords.some(nw => nw.includes(w) || w.includes(nw)))) {
+          try {
+            const d = JSON.parse(fs.readFileSync(path.join(CACHE_DIR, f), 'utf8'));
+            if (d.results && d.results.length) { cached = d.results; break; }
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+
   if (cached && cached.length) {
     const priced = cached.filter(r => r.price != null);
     send('progress', { completed: 1, total: 1, phase: `💰 Found ${priced.length} deals (${cached.length} total)` });
     send('partial', { results: cached });
     send('done', { results: cached });
   } else {
-    send('progress', { completed: 1, total: 1, phase: '⏳ No results yet — researching now, check back in ~30 seconds…' });
-    send('done', { results: [], pending: true });
+    send('progress', { completed: 1, total: 1, phase: '⏳ No cached results for this product yet. Try: Netflix, ChatGPT Plus, Spotify Premium, Canva Pro, Claude Pro, Microsoft 365' });
+    send('done', { results: [], pending: false });
   }
   res.end();
 });
