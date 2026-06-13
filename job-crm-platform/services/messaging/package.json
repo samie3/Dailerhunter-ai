@@ -1,0 +1,16 @@
+{
+  "name": "crm-messaging",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@vinxwhy1st/bails": "^1.0.0",
+    "@prisma/client": "^5.14.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "winston": "^3.13.0",
+    "qrcode": "^1.5.3"
+  }
+}

@@ -1,0 +1,5 @@
+fastapi==0.111.0
+uvicorn==0.30.1
+sniffmail==0.1.3
+python-dotenv==1.0.1
+loguru==0.7.2
