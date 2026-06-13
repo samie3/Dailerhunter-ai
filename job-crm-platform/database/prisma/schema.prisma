@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String?
+  name          String?
+  plan          Plan     @default(FREE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  googleTokens  GoogleToken?
+  whatsappSession WhatsappSession?
+  sequences     Sequence[]
+  leads         Lead[]
+  cvFiles       CvFile[]
+  aiReplies     AIReply[]
+  analytics     SequenceAnalytic[]
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+model GoogleToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scope        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model WhatsappSession {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credsJson  String   @db.Text
+  paired     Boolean  @default(false)
+  phoneNumber String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ─── Sequence ────────────────────────────────────────────────────────────────
+
+model Sequence {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sector      String
+  city        String
+  status      SequenceStatus  @default(IDLE)
+  dailyLimit  Int             @default(45)
+  dayNumber   Int             @default(1)
+  startedAt   DateTime?
+  stoppedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  leads       Lead[]
+}
+
+enum SequenceStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+// ─── Leads ───────────────────────────────────────────────────────────────────
+
+model Lead {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sequenceId    String?
+  sequence      Sequence?    @relation(fields: [sequenceId], references: [id])
+  companyName   String
+  jobTitle      String?
+  jobUrl        String?
+  contactEmail  String?
+  contactPhone  String?
+  source        String?
+  emailValid    Boolean?
+  status        LeadStatus   @default(PENDING)
+  sentAt        DateTime?
+  openedAt      DateTime?
+  repliedAt     DateTime?
+  whatsappSent  Boolean      @default(false)
+  whatsappSentAt DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  communications Communication[]
+  aiReplies      AIReply[]
+}
+
+enum LeadStatus {
+  PENDING
+  QUEUED
+  SENT
+  OPENED
+  REPLIED
+  FAILED
+  UNSUBSCRIBED
+}
+
+// ─── Communication ───────────────────────────────────────────────────────────
+
+model Communication {
+  id         String    @id @default(cuid())
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type       CommType
+  direction  CommDir
+  subject    String?
+  body       String    @db.Text
+  gmailId    String?
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+enum CommType {
+  EMAIL
+  WHATSAPP
+}
+
+enum CommDir {
+  OUTBOUND
+  INBOUND
+}
+
+// ─── AI Replies ──────────────────────────────────────────────────────────────
+
+model AIReply {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId       String
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  inboundBody  String        @db.Text
+  draftSubject String?
+  draftBody    String        @db.Text
+  status       AIReplyStatus @default(PENDING_APPROVAL)
+  approvedAt   DateTime?
+  sentAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+enum AIReplyStatus {
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  REJECTED
+}
+
+// ─── CV Files ────────────────────────────────────────────────────────────────
+
+model CvFile {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename   String
+  path       String
+  parsedText String?  @db.Text
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+model SequenceAnalytic {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  date       DateTime @default(now()) @db.Date
+  sent       Int      @default(0)
+  opened     Int      @default(0)
+  replied    Int      @default(0)
+  failed     Int      @default(0)
+  whatsapp   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, date])
+}
